@@ -1,0 +1,100 @@
+# Vet clinic snippet with Undo for last registration (stack-based)
+
+# Queue and undo stack
+consultation_queue = []
+undo_stack = []  # will store pet_id values (most recent registration on top)
+
+# ----------
+def pet_id_generator(queue):
+    if not queue:
+        return 'PID001'
+    else:
+        # find last registered PID by scanning queue for the last dict key
+        # (keeps behavior compatible with current structure)
+        last_info = queue[-1]
+        last_pid = list(last_info.keys())[0]
+        pid_prefix = last_pid[:3]
+        pid_number = int(last_pid[3:]) + 1
+        return f"{pid_prefix}{pid_number:03d}"
+
+# ----------
+def get_valid_input(prompt):
+    while True:
+        user_prompt = input(prompt)
+        if user_prompt.strip() and all(x.isalpha() or x.isspace() for x in user_prompt):
+            return user_prompt.title()
+        else:
+            field_name = prompt.strip().rstrip(":").strip().lower()
+            print(f"Invalid input. '{user_prompt}' is not a valid {field_name}.")
+
+# ----------
+def get_severity_level():
+    severity_map = {
+        1: "Most Severe / Emergency",
+        2: "Serious",
+        3: "Moderate",
+        4: "Minor",
+        5: "Least Severe"
+    }
+    while True:
+        try:
+            user_prompt = int(input("Condition Severity (1-5): "))
+            if user_prompt in severity_map:
+                return f"{user_prompt} - {severity_map[user_prompt]}"
+            else:
+                print(f"Invalid input. Severity level {user_prompt} is not valid.")
+        except ValueError:
+            print("Invalid input. Please enter a number between 1 and 5.")
+
+# ----------
+def register_pet(queue, undo_stack):
+    pid = pet_id_generator(queue)
+    form_data = {
+        pid: {
+            "Pet Name"           : get_valid_input("Pet Name: "),
+            "Breed"              : get_valid_input("Breed: "),
+            "Owner Name"         : get_valid_input("Owner Name: "),
+            "Condition Severity" : get_severity_level()
+        }
+    }
+    queue.append(form_data)
+    # push to undo stack so we can undo this registration
+    undo_stack.append(pid)
+    print(f"Registered {pid}")
+    return form_data
+
+# ----------
+def undo_last_registration(queue, undo_stack):
+    if not undo_stack:
+        print("Nothing to undo.")
+        return None
+    last_pid = undo_stack.pop()  # most recent registration
+    # find and remove the entry with this pid from the queue (if present)
+    for i, entry in enumerate(queue):
+        if list(entry.keys())[0] == last_pid:
+            removed = queue.pop(i)
+            print(f"Undo successful. Removed registration {last_pid}.")
+            return removed
+    # If not found in queue (maybe already served/removed), inform user
+    print(f"Undo: registration {last_pid} not found in queue (may have been served/removed).")
+    return None
+
+# ----------
+# Example interactive trial
+if __name__ == "__main__":
+    while True:
+        print("\nOptions: [1] Register pet  [2] Undo last registration  [3] Show queue  [4] Exit")
+        choice = input("Choose: ").strip()
+        if choice == "1":
+            register_pet(consultation_queue, undo_stack)
+        elif choice == "2":
+            undo_last_registration(consultation_queue, undo_stack)
+        elif choice == "3":
+            print("Current consultation queue:")
+            for item in consultation_queue:
+                print(item)
+            print("Undo stack (most recent last):", undo_stack)
+        elif choice == "4":
+            break
+        else:
+            print("Invalid choice.")
